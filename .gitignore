@@ -3,6 +3,7 @@
 _book/
 
 # ISO Build Artifacts
+archlinux.iso
 *.patch
 *.iso
 *.iso.sig
@@ -12,7 +13,6 @@ work/
 
 # Build directories and cache
 vm/
-test/
 build/
 dist/
 cache/
@@ -23,6 +23,8 @@ patch/
 *.log.*
 build.log
 archiso.log
+installer.conf
+installer.log
 
 # Temporary files
 *.bak
