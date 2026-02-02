@@ -59,11 +59,11 @@ jobs:
               # Install required packages
               pacman -Syu --noconfirm
               pacman -S --noconfirm base-devel git archiso grub
-              
+
               # Make scripts executable
               chmod +x build-iso.sh
               chmod +x archiso/airootfs/root/customize_airootfs.sh
-              
+
               # Build the ISO
               ./build-iso.sh x86_64
             "
@@ -78,7 +78,7 @@ jobs:
   build-aarch64:
     if: ${{ github.event.inputs.architecture == 'aarch64' || github.event.inputs.architecture == 'both' || github.event.inputs.architecture == '' }}
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -104,41 +104,41 @@ jobs:
               # Monitor disk space
               echo "=== DISK SPACE BEFORE INSTALL ==="
               df -h
-              
+
               # Install minimal required tools (avoid base-devel to save space)
               pacman -Syu --noconfirm
               pacman -S --noconfirm git wget parted dosfstools e2fsprogs multipath-tools
-              
+
               echo "=== DISK SPACE AFTER PACKAGE INSTALL ==="
               df -h
-              
+
               # Clean up package cache to save space
               pacman -Sc --noconfirm
-              
+
               # Additional cleanup to free more space
               rm -rf /var/cache/pacman/pkg/*
               rm -rf /tmp/*
-              
+
               echo "=== DISK SPACE AFTER CLEANUP ==="
               df -h
-              
+
               chmod +x build-arm-image.sh build-arm-minimal.sh
-              
+
               # Check disk space before building images
               echo "=== DISK SPACE BEFORE IMAGE BUILD ==="
               df -h
-              
+
               # Build minimal ARM64 SD card image first (smaller, faster)
               echo "=== BUILDING MINIMAL ARM IMAGE ==="
               ./build-arm-minimal.sh rpi4
-              
+
               echo "=== DISK SPACE AFTER MINIMAL BUILD ==="
               df -h
-              
+
               # Build full ARM64 SD card image
               echo "=== BUILDING FULL ARM IMAGE ==="
               ./build-arm-image.sh rpi4
-              
+
               echo "=== DISK SPACE AFTER FULL BUILD ==="
               df -h
             '
@@ -152,9 +152,9 @@ jobs:
 
   create-release:
     if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ISO') && github.event_name == 'push'
-    needs: [build-x86_64, build-aarch64]
+    needs: [build-x86_64] #, build-aarch64] - archiving arm/aarch64 builds. wip
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -165,18 +165,18 @@ jobs:
           name: lnos-x86_64-iso
           path: ./isos/
 
-      - name: Download aarch64 SD card image
-        uses: actions/download-artifact@v4
-        with:
-          name: lnos-aarch64-sdcard
-          path: ./isos/
+      #- name: Download aarch64 SD card image
+      #  uses: actions/download-artifact@v4
+      #  with:
+      #    name: lnos-aarch64-sdcard
+      #    path: ./isos/
 
       - name: Check file sizes for compression decision
         run: |
           cd ./isos/
-          
+
           echo "=== CHECKING FILE SIZES ==="
-          
+
           # Check ISO files
           for iso in *.iso; do
             if [ -f "$iso" ]; then
@@ -184,7 +184,7 @@ jobs:
               size_human=$(du -h "$iso" | cut -f1)
               echo "ISO: $(basename "$iso")"
               echo "Size: ${size_human} (${size_mb} MB)"
-              
+
               if [[ $size_mb -lt 1000 ]]; then
                 echo "✅ Under 1GB - no compression needed!"
                 echo "Keeping $iso uncompressed"
@@ -197,7 +197,7 @@ jobs:
               echo ""
             fi
           done
-          
+
           # Check IMG files  
           for img in *.img; do
             if [ -f "$img" ]; then
@@ -205,7 +205,7 @@ jobs:
               size_human=$(du -h "$img" | cut -f1)
               echo "IMG: $(basename "$img")"
               echo "Size: ${size_human} (${size_mb} MB)"
-              
+
               if [[ $size_mb -lt 1000 ]]; then
                 echo "✅ Under 1GB - no compression needed!"
                 echo "Keeping $img uncompressed"
@@ -218,7 +218,7 @@ jobs:
               echo ""
             fi
           done
-          
+
           echo "=== FINAL FILES ==="
           ls -lh
 
@@ -229,21 +229,21 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           cd ./isos/
-          
+
           echo "🔐 Signing release files with GPG..."
-          
+
           # Import the private key
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          
+
           # Get key ID for verification
           KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/ {print $5}' | head -1)
           echo "📋 Using GPG key: $KEY_ID"
-          
+
           # Sign all release files
           for file in *.iso *.img *.xz; do
             if [ -f "$file" ]; then
               echo "🔏 Signing: $file"
-              
+
               # Create detached ASCII-armored signature
               gpg --batch --yes \
                   --pinentry-mode loopback \
@@ -253,7 +253,7 @@ jobs:
                   --armor \
                   --output "${file}.asc" \
                   "$file"
-              
+
               if [ -f "${file}.asc" ]; then
                 echo "✅ Successfully signed: $file -> ${file}.asc"
                 echo "📝 Signature size: $(wc -c < "${file}.asc") bytes"
@@ -262,11 +262,11 @@ jobs:
               fi
             fi
           done
-          
+
           echo ""
           echo "=== SIGNED FILES ==="
           ls -lh *.asc 2>/dev/null || echo "No signature files found"
-          
+
           echo ""
           echo "=== GPG KEY INFO ==="
           gpg --list-keys "$KEY_ID" || echo "Key info not available"
@@ -278,21 +278,21 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.5.0
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: LnOS Release ${{ steps.tag.outputs.tag }}
           body: |
             ## LnOS Custom Arch Linux Distribution
-            
+
             ![GPG Signed](https://img.shields.io/badge/GPG-Signed-brightgreen?style=for-the-badge&logo=gnupg)
             ![Security Verified](https://img.shields.io/badge/Security-Verified-blue?style=for-the-badge&logo=shield)
             ![Integrity Guaranteed](https://img.shields.io/badge/Integrity-Guaranteed-orange?style=for-the-badge&logo=checkmarx)
-            
+
             **🔒 This release is cryptographically signed for authenticity and integrity**
-            
+
             This release contains custom minimal Arch Linux images with the LnOS installer.
-            
+
             ### Features:
             - **Cryptographically signed** with GPG (Key: `9486759312876AD7`)
             - Minimal Arch Linux base system
@@ -300,33 +300,33 @@ jobs:
             - Desktop environment choices (GNOME, KDE, Hyprland, DWM, TTY)
             - CSE and Custom installation profiles
             - Automated partitioning and installation
-            
+
             ### Files Included:
             - **x86_64 ISO/IMG**: For VMs, Intel/AMD computers, and USB boot
             - **ARM64 IMG**: SD card image for Raspberry Pi 4 and ARM64 devices
             - **Digital Signatures**: `.asc` files for verifying authenticity
-            
+
             **Note**: Large files (>1GB) are compressed with XZ to stay under GitHub's 2GB limit. Files under 1GB are uncompressed and ready to use.
-            
+
             ### 🛡️ Security & Digital Signature Verification:
-            
+
             > ⚠️ **IMPORTANT**: Always verify file signatures before use! All release files are digitally signed with GPG.
-            
+
             **GPG Key Information:**
             - **Key ID**: `9486759312876AD7`
             - **Fingerprint**: `FF3B 2203 9FA1 CBC0 72E5 8967 9486 7593 1287 6AD7`
             - **Owner**: LnOS Development Team
-            
+
             **Verification Methods:**
             ```bash
             # Quick verification (auto-imports key)
             curl -fsSL https://raw.githubusercontent.com/uta-lug-nuts/LnOS/main/scripts/verify-signature.sh | bash -s -- <filename>
-            
+
             # Manual verification
             curl -fsSL https://raw.githubusercontent.com/uta-lug-nuts/LnOS/main/keys/lnos-public-key.asc | gpg --import
             gpg --verify <filename>.asc <filename>
             ```
-            
+
             ### Checksums:
             ```
             $(cd isos && sha256sum * 2>/dev/null || echo "Checksums will be calculated...")
