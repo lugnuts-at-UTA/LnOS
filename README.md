@@ -49,7 +49,7 @@ Click here to see guide on testing: [Testing](https://github.com/lugnuts-at-uta/
 * **Base System:** Minimal Arch Linux with a rolling release model.
 * **Major Themed presets:** Engineers will have preset options to choose  
 * **Desktop Environment:** [GNOME](https://www.gnome.org/)(similar to macos) [KDE Plasma](https://kde.org/)(similar to windows) and Tiling Window Managers like [Hyprland](https://hypr.land/), and [DWM](https://dwm.suckless.org/).
-  * To learn more about Tiling Window Managers [click here](https://github.com/uta-lug-nuts/LnOS/wiki/tilingWM)
+  * To learn more about Tiling Window Managers [click here](https://github.com/lugnuts-at-UTA/LnOS/wiki/Tiling-Window-Managers)
 * Documentation: Guides and support for UTA students on installation and customization of tools.
 
 
